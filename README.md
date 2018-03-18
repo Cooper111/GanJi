@@ -1,15 +1,10 @@
 # GanJi
 爬取赶集网二手商品资料
 <hr>
-1.没有(先到ip网抓取ip，再使用代理ip),待改进
+没有(先到ip网抓取ip，再使用代理ip),待改进
 <hr>
-2.断点续传：
-
->  db_urls = [item['url'] for item in url_list.find()]<br>
->  index_urls = [item['url'] for item in item_info.find()]<br>
->  x = set(db_urls)<br>
->  y = set(index_urls)<br>
->  rest_of_urls = x-y<br>
+这是一个爬取赶集网二手市场的爬虫，抓取url_list的爬虫和item_info的爬虫相分离，分别位于mian和page_parsing；
+基于Mongodb，支持断点续传
 <hr>
-
-然后把main的那个函数注释掉，底下POOL的channel_list.split()替换成rest_of_urls.split()
+尝试了3个简要的数据分析···
+ps：鄙人不才没有找到发布的年份，数据有一定的误差
