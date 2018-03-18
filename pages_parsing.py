@@ -4,9 +4,8 @@ import time
 import pymongo
 import re
 import datetime
-'''
-爬取第一页
-'''
+from multiprocessing import Pool
+
 client = pymongo.MongoClient('localhost', 27017)
 ganji = client['ganji']
 url_list = ganji['url_list01']
@@ -20,6 +19,7 @@ headers={
 def get_links(url,pages=1,who_sells='o'):
     url ='{}{}{}/'.format(url,str(who_sells),str(pages))
     # http://bj.ganji.com/ershoubijibendiannao/o3/
+    # http://zhuanzhuan.ganji.com/detail/971726746263273997z.shtml
     # o for personal a for merchant
     web_data = requests.get(url,headers=headers)
     soup = BeautifulSoup(web_data.text,'lxml')
@@ -27,24 +27,28 @@ def get_links(url,pages=1,who_sells='o'):
         links = []
         for link in soup.select('td.t a.t'):
             item_link = link.get('href').split('?')[0]
-            links.append(item_link)
-            url_list.insert_one({'url':item_link})
+            if 'zhuanzhuan' in item_link:
+                pass
+            else:
+                links.append(item_link)
+                url_list.insert_one({'url': item_link})
         print(links)
-        for url in links:
-            get_pageInfo(url)
+
     else:
         pass
 def get_pageInfo(link):
-    if 'http' in link:
+    try:
+        if 'http' not in link:
+            link = 'http:' + link
         web_data = requests.get(link,headers=headers)
         if(web_data.status_code !=404):
             try:
                 soup = BeautifulSoup(web_data.text,'lxml')
-                '''
-                area_row = soup.select('ul > li:nth-of-type(2) > a:nth-of-type(2)')[0]
-                p = re.compile(r'<[^>]+>',re.S)
-                area = p.sub('',str(area_row))
-                '''
+
+                area_row = soup.select('ul > li:nth-of-type(3) > a:nth-of-type(2)')[0]
+                p = re.compile(r'<[^>]+>', re.S)
+                area = p.sub('', str(area_row))
+
                 '''
                 #wrapper > div.content.clearfix > div.leftBox > div:nth-child(2) > div > ul > li:nth-child(2) > a:nth-child(2)
                 #wrapper > div.content.clearfix > div.leftBox > div:nth-child(2) > div > ul > li:nth-child(2) > a:nth-child(3)
@@ -54,19 +58,23 @@ def get_pageInfo(link):
 
                 price = soup.select('.f22.fc-orange.f-type')[0].text.strip()
                 row_time = soup.select('.pr-5')[0].text.strip().split(' ')[0][:6]
-                d2 = datetime.datetime.now()
-                pub_time = '2018-' + row_time[0] + row_time[1] + '-' + row_time[3] + row_time[4]
-                d1 = datetime.datetime.strptime(pub_time, '%Y-%m-%d')
-                last_time = d2 - d1
-                s = int(last_time.days)
-                if (s < 0):
-                    s += 365
+                if '时' not in row_time:
+                    d2 = datetime.datetime.now()
+                    pub_time = '2018-' + row_time[0] + row_time[1] + '-' + row_time[3] + row_time[4]
+                    d1 = datetime.datetime.strptime(pub_time, '%Y-%m-%d')
+                    last_time = d2 - d1
+                    s = int(last_time.days)
+                    if (s < 0):
+                        s += 365
+                else:
+                    s = 'Unknow'
                 info = {
                     'title':soup.title.text,
-                    'area': list(map(lambda x: x.text, soup.select('ul > li:nth-of-type(2) > a')))[-2:],
+                    'area' :area,
                     'price':price,
                     'pub_date': row_time,
-                    'cates': list(soup.select(' ul > li:nth-of-type(4) > span')[0].stripped_strings)[0],
+                    'cates1': link.split('/')[3],
+                    'cate2': list(map(lambda x: x.text, soup.select('ul > li:nth-of-type(2) > a'))),
                     'url': link,
                     'last_time':s
                 }
@@ -83,10 +91,29 @@ def get_pageInfo(link):
                 print('fuck2')
         else:
             print('fuck3')
-    else:
+    except:
         print('fuck4')
-        
-        
+
 '''
-get_pageInfo("http://bj.ganji.com/ruanjiantushu/32148303880377x.htm")
+get_pageInfo('http://bj.ganji.com/xuniwupin/2933252314x.htm')
 '''
+
+db_urls = [item['url'] for item in url_list.find()]
+index_urls = [item['url'] for item in item_info.find()]
+x = set(db_urls)
+y = set(index_urls)
+rest_of_urls = x - y
+rest_of_urls = list(rest_of_urls)
+
+'''
+print(rest_of_urls)
+'''
+
+if __name__ == '__main__':
+    pool = Pool()
+    # pool = Pool(processes=6)
+    pool.map(get_pageInfo, rest_of_urls)
+
+    pool.close()
+    pool.join()
+
